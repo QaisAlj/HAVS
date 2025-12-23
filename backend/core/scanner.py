@@ -308,16 +308,17 @@ def extract_version_info(cve_data):
     return version_ranges if version_ranges else None
 
 def extract_cwe_ids(cve_data):
-    """Extract CWE IDs from CVE data"""
-    cwe_list = []
+    """Extract CWE IDs from CVE data, removing duplicates"""
+    cwe_set = set()
     weaknesses = cve_data.get("weaknesses", [])
     
     for weakness in weaknesses:
         for desc in weakness.get("description", []):
             cwe_value = desc.get("value", "")
             if cwe_value.startswith("CWE-"):
-                cwe_list.append(cwe_value)
+                cwe_set.add(cwe_value)
     
+    cwe_list = sorted(list(cwe_set))  # Sort for consistent ordering
     return ", ".join(cwe_list) if cwe_list else "N/A"
 
 def check_cisa_kev(cve_data):

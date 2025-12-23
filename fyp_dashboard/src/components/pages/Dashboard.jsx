@@ -112,8 +112,8 @@ const Dashboard = () => {
     // Count each CWE occurrence
     vulnerabilities.forEach(vuln => {
       if (vuln.cwe && vuln.cwe !== 'N/A') {
-        // Split multiple CWEs if comma-separated
-        const cwes = vuln.cwe.split(',').map(c => c.trim())
+        // Split multiple CWEs if comma-separated, remove duplicates within the same vulnerability
+        const cwes = [...new Set(vuln.cwe.split(',').map(c => c.trim()).filter(c => c && c.length > 0))]
         cwes.forEach(cwe => {
           if (cwe && cwe.startsWith('CWE-')) {
             cweCount[cwe] = (cweCount[cwe] || 0) + 1

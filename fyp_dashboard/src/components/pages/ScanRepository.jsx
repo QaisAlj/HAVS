@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { ShieldIcon, GitHubIcon, UploadIcon } from '../shared/Icons'
+import logoImage from '../../assets/logo.png'
 import APIService from '../../services/api'
 
 // Scan Card Component
@@ -12,6 +13,9 @@ const ScanCard = ({ onScanComplete }) => {
   const [isDragOver, setIsDragOver] = useState(false)
   const [scanStatus, setScanStatus] = useState('')
   const [scanDuration, setScanDuration] = useState(0)
+  const [hasDependencies, setHasDependencies] = useState(false)
+  const [hasSourceFiles, setHasSourceFiles] = useState(false)
+  const handleScanRef = useRef(null)
 
   // Load previous scan state from sessionStorage on mount
   useEffect(() => {
@@ -29,6 +33,20 @@ const ScanCard = ({ onScanComplete }) => {
         console.error('Error loading scan state:', error)
       }
     }
+    
+    // Restore scan type from last scan results
+    const lastScanResults = sessionStorage.getItem('lastScanResults')
+    if (lastScanResults) {
+      try {
+        const results = JSON.parse(lastScanResults)
+        const hasDeps = results.dependencies && results.dependencies.length > 0
+        const hasSource = results.sourceFiles && results.sourceFiles.length > 0
+        setHasDependencies(hasDeps)
+        setHasSourceFiles(hasSource)
+      } catch (error) {
+        console.error('Error loading scan results:', error)
+      }
+    }
   }, [])
 
   // Save scan state to sessionStorage whenever it changes
@@ -44,6 +62,25 @@ const ScanCard = ({ onScanComplete }) => {
       sessionStorage.setItem('lastScanState', JSON.stringify(stateToSave))
     }
   }, [githubUrl, scanCompleted, scanProgress, scanStatus, scanDuration])
+
+  // Handle Enter key to trigger scan again when scan is completed
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.key === 'Enter' && scanCompleted && !isScanning) {
+        // Trigger scan with current inputs using ref to avoid dependency issues
+        if (handleScanRef.current) {
+          handleScanRef.current()
+        }
+      }
+    }
+
+    if (scanCompleted) {
+      window.addEventListener('keydown', handleKeyPress)
+      return () => {
+        window.removeEventListener('keydown', handleKeyPress)
+      }
+    }
+  }, [scanCompleted, isScanning])
 
   const validateGitHubUrl = (url) => {
     const githubRegex = /^https:\/\/github\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9._-]+(\.git)?$/
@@ -169,6 +206,12 @@ const ScanCard = ({ onScanComplete }) => {
       // Transform and store results
       const transformedResults = APIService.transformScanResults(result)
       
+      // Determine what was scanned based on results
+      const hasDeps = transformedResults.dependencies && transformedResults.dependencies.length > 0
+      const hasSource = transformedResults.sourceFiles && transformedResults.sourceFiles.length > 0
+      setHasDependencies(hasDeps)
+      setHasSourceFiles(hasSource)
+      
       // Store in sessionStorage for Dashboard to access
       sessionStorage.setItem('lastScanResults', JSON.stringify(transformedResults))
       sessionStorage.setItem('lastScanUrl', isFileUpload ? `Uploaded: ${uploadedFiles[0].name}` : githubUrl)
@@ -190,6 +233,11 @@ const ScanCard = ({ onScanComplete }) => {
       alert(`Scan failed: ${error.message}\n\nPlease make sure the backend is running and the repository URL is valid.`)
     }
   }
+
+  // Update ref with latest handleScan function
+  useEffect(() => {
+    handleScanRef.current = handleScan
+  }, [githubUrl, uploadedFiles])
   
   const handleViewResults = () => {
     onScanComplete('Dashboard')
@@ -199,17 +247,10 @@ const ScanCard = ({ onScanComplete }) => {
     onScanComplete('ML Predictions')
   }
   
-  const handleScanAnother = () => {
-    setGithubUrl('')
-    setUploadedFiles([])
-    setScanProgress(0)
-    setScanStatus('')
-    setScanCompleted(false)
-    setIsScanning(false)
-    setScanDuration(0)
-    // Clear the saved scan state
-    sessionStorage.removeItem('lastScanState')
-  }
+  const handleScanAnother = useCallback(() => {
+    // Just start a new scan with the same inputs
+    handleScan()
+  }, [githubUrl, uploadedFiles])
 
   return (
     <div className="scan-card">
@@ -230,6 +271,11 @@ const ScanCard = ({ onScanComplete }) => {
               placeholder="https://github.com/username/repository"
               value={githubUrl}
               onChange={(e) => setGithubUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !isScanning && !scanCompleted) {
+                  handleScan()
+                }
+              }}
               disabled={isScanning}
             />
           </div>
@@ -325,18 +371,22 @@ const ScanCard = ({ onScanComplete }) => {
             >
               Scan Another Repository
             </button>
-            <button 
-              className="view-results-button" 
-              onClick={handleViewResults}
-            >
-              View Dependencies
-            </button>
-            <button 
-              className="view-results-button" 
-              onClick={handleViewMLResults}
-            >
-              View ML Analysis
-            </button>
+            {hasDependencies && (
+              <button 
+                className="view-results-button" 
+                onClick={handleViewResults}
+              >
+                View Dependencies
+              </button>
+            )}
+            {hasSourceFiles && (
+              <button 
+                className="view-results-button" 
+                onClick={handleViewMLResults}
+              >
+                View ML Analysis
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -350,7 +400,7 @@ const ScanRepository = ({ onScanComplete }) => {
     <div className="page-content">
       <div className="page-header">
         <div className="header-logo">
-          <ShieldIcon />
+          <img src={logoImage} alt="VulnScanner Logo" className="header-logo-image" />
         </div>
         <h1>Vulnerability Scanner</h1>
         <p>Comprehensive security analysis for your GitHub repositories.<br />

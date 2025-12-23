@@ -54,18 +54,6 @@ function App() {
     <div className={`app-container ${isLoaded ? 'loaded' : ''}`}>
       <FloatingParticles />
       <div className="sidebar">
-        <div className="sidebar-header">
-          <div className="logo-container">
-            <div className="logo-text">
-              <div className="app-name">VulnScanner</div>
-              <div className="app-subtitle">Security Analysis</div>
-            </div>
-            <div className="logo-icon">
-              <ShieldIcon />
-            </div>
-          </div>
-        </div>
-        
         <nav className="sidebar-nav">
           {navigationItems.map((item) => (
             <div

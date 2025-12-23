@@ -1,6 +1,23 @@
 import { useState, useEffect } from 'react'
 import { DocumentIcon } from '../shared/Icons'
 
+// Helper function to deduplicate CWE values
+const deduplicateCWE = (cweString) => {
+  if (!cweString || cweString === 'N/A') {
+    return 'N/A'
+  }
+  
+  // Split by comma, trim whitespace, filter empty strings, and remove duplicates
+  const cweList = cweString.split(',')
+    .map(cwe => cwe.trim())
+    .filter(cwe => cwe && cwe.length > 0)
+  
+  // Use Set to remove duplicates while preserving order
+  const uniqueCWEs = [...new Set(cweList)]
+  
+  return uniqueCWEs.join(', ')
+}
+
 // Vulnerabilities Page Component
 const Vulnerabilities = () => {
   const [scanResults, setScanResults] = useState(null)
@@ -196,7 +213,7 @@ const Vulnerabilities = () => {
                   {/* CWE Column */}
                   <div className="cve-column cwe-col">
                     <span className="cwe-badge" title="Common Weakness Enumeration">
-                      {cve.cwe || 'N/A'}
+                      {deduplicateCWE(cve.cwe)}
                     </span>
                   </div>
 
